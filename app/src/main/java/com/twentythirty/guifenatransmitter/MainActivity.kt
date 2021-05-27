@@ -17,6 +17,8 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val CHANNEL_ID = "Ntap"
         const val CHANNEL_NAME = "Info"
+        const val TAG_AMPLITUDE = "amp"
+        const val TAG_INTERVAL = "int"
 
     }
 
@@ -24,6 +26,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val REQUEST_RECORD_AUDIO_PERMISSION = 200
     private var permissionToRecordAccepted = false
+    private var minAmplitude = 0
+    private var updateInterval = 1000L
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -34,6 +38,12 @@ class MainActivity : AppCompatActivity() {
         }
         binding.btnStop.setOnClickListener {
             stopService()
+        }
+        binding.btnSave.setOnClickListener {
+            minAmplitude = binding.edtMinAmp.text.toString().toInt()
+            updateInterval = binding.edtInterval.text.toString().toLong()
+
+
         }
         createNotificationChannel()
     }
@@ -53,6 +63,8 @@ class MainActivity : AppCompatActivity() {
 
     fun startService() {
         val myServiceIntent = Intent(this, RecordService::class.java)
+        myServiceIntent.putExtra(TAG_AMPLITUDE, minAmplitude)
+        myServiceIntent.putExtra(TAG_INTERVAL, updateInterval)
         ContextCompat.startForegroundService(this, myServiceIntent)
     }
 

@@ -23,7 +23,8 @@ class RecordService : Service() {
     private lateinit var mRecorder: MediaRecorder
     private var amplitudeValue = 0
     private var amplitudeDb = 0.0
-    private val UPDATE_INTERVAL = 1000L
+    private var referenceAmplitude = 70
+    private var updateInterval = 1000L
     private lateinit var mainHandler: Handler
     private lateinit var file: File
     private lateinit var mp: MediaPlayer
@@ -36,18 +37,19 @@ class RecordService : Service() {
             }
             amplitudeDb = 20 * log10(abs(amplitudeValue).toDouble())
             updateNotification("Recording...", "Amplitude: $amplitudeDb")
-            mainHandler.postDelayed(this, UPDATE_INTERVAL)
+            mainHandler.postDelayed(this, updateInterval)
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val input = intent?.getStringExtra("wawawa")
+        referenceAmplitude = intent!!.getIntExtra(MainActivity.TAG_AMPLITUDE, 70)
+        updateInterval = intent.getLongExtra(MainActivity.TAG_INTERVAL, 10000L)
         mainHandler = Handler(Looper.getMainLooper())
         val notificationIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
         val notification = NotificationCompat.Builder(this, MainActivity.CHANNEL_ID)
-            .setContentTitle("Ini Forefround")
-            .setContentText(input)
+            .setContentTitle("Starting recorder...")
+            .setContentText("please wait")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
             .build()
@@ -105,7 +107,7 @@ class RecordService : Service() {
             mRecorder.stop()
             isRecording = false
         }
-        if (amplitudeDb > 50.0) {
+        if (amplitudeDb > referenceAmplitude) {
             //Upload to cloud
             updateNotification("Playing sound..", "denger")
             mp = MediaPlayer()
