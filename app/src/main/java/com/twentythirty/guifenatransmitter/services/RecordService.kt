@@ -8,13 +8,14 @@ import android.media.MediaRecorder
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.util.Base64
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.twentythirty.guifenatransmitter.MainActivity
 import com.twentythirty.guifenatransmitter.R
+import com.twentythirty.guifenatransmitter.data.PayloadModel
 import java.io.File
-import java.io.IOException
 import kotlin.math.abs
 import kotlin.math.log10
 
@@ -31,13 +32,16 @@ class RecordService : Service() {
     private var isRecording = false
     private val updateAmplitude = object : Runnable {
         override fun run() {
-            val tempAplitude = mRecorder.maxAmplitude
-            if (tempAplitude > amplitudeValue) {
-                amplitudeValue = tempAplitude
+            val tempAmplitude = mRecorder.maxAmplitude
+            if (tempAmplitude > amplitudeValue) {
+                amplitudeValue = tempAmplitude
             }
             amplitudeDb = 20 * log10(abs(amplitudeValue).toDouble())
-            updateNotification("Recording...", "Amplitude: $amplitudeDb")
-            mainHandler.postDelayed(this, updateInterval)
+            updateNotification(
+                "Recording...",
+                "Amplitude: $amplitudeDb\nReference amp: $referenceAmplitude"
+            )
+            mainHandler.postDelayed(this, 1000)
         }
     }
 
@@ -67,8 +71,10 @@ class RecordService : Service() {
         if (isRecording) {
             mRecorder.stop()
         }
-        if (mp.isPlaying) {
-            mp.stop()
+        if (::mp.isInitialized) {
+            if (mp.isPlaying) {
+                mp.stop()
+            }
         }
         mainHandler.removeCallbacksAndMessages(null)
         super.onDestroy()
@@ -80,6 +86,7 @@ class RecordService : Service() {
                 mp.stop()
             }
         }
+        amplitudeValue = 0
         isRecording = true
         file = File(this.filesDir, "tes.m4a")
         mRecorder = MediaRecorder().apply {
@@ -93,18 +100,18 @@ class RecordService : Service() {
         try {
             mRecorder.prepare()
             mRecorder.start()
-        } catch (e: IllegalStateException) {
-            e.printStackTrace()
-        } catch (e: IOException) {
-            e.printStackTrace()
+            Log.d("FARIN", "started")
+        } catch (e: Exception) {
+            Log.d("FARIN", e.toString())
         }
         mainHandler.post(updateAmplitude)
-        mainHandler.postDelayed({ stopRecord() }, 10000L)
+        mainHandler.postDelayed({ stopRecord() }, updateInterval)
     }
 
     private fun stopRecord() {
         if (isRecording) {
             mRecorder.stop()
+            mRecorder.reset()
             isRecording = false
         }
         if (amplitudeDb > referenceAmplitude) {
@@ -116,16 +123,38 @@ class RecordService : Service() {
                 prepare()
                 start()
             }
-            //"ADD COROUTINE FOR UPLOADING")
+            largeLog("farin", convertBase64(file))
+            val payloadModel = PayloadModel(
+                audio = convertBase64(file),
+                sensorId = 1
+            )
+            TODO("add coroutine for upload")
+            //masukkan 3 baris kode dibawah ini ke coroutine
+            //agar recording dijalankan kembali
+            //hanya ketika upload sudah selesai
             mainHandler.removeCallbacks(updateAmplitude)
             mRecorder.release()
-            mainHandler.postDelayed({ startRecord() }, 10000L)
+            mainHandler.postDelayed({ startRecord() }, updateInterval)
         } else {
             mainHandler.removeCallbacks(updateAmplitude)
+            mRecorder.reset()
             mRecorder.release()
-            mainHandler.postDelayed({ startRecord() }, 10000L)
+            updateNotification("No sound", "Starting recorder..")
+            mainHandler.postDelayed({ startRecord() }, 2000)
         }
 
+    }
+
+    private fun convertBase64(file: File): String =
+        Base64.encodeToString(file.readBytes(), Base64.NO_WRAP)
+
+    private fun largeLog(tag: String?, content: String) {
+        if (content.length > 4000) {
+            Log.d(tag, content.substring(0, 4000))
+            largeLog(tag, content.substring(4000))
+        } else {
+            Log.d(tag, content)
+        }
     }
 
     fun updateNotification(title: String, subTitle: String) {

@@ -33,6 +33,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         ActivityCompat.requestPermissions(this, permissions, REQUEST_RECORD_AUDIO_PERMISSION)
+        getSavedData()
         binding.btnStart.setOnClickListener {
             startService()
         }
@@ -40,12 +41,25 @@ class MainActivity : AppCompatActivity() {
             stopService()
         }
         binding.btnSave.setOnClickListener {
+            val preferences = getSharedPreferences("main", MODE_PRIVATE)
             minAmplitude = binding.edtMinAmp.text.toString().toInt()
             updateInterval = binding.edtInterval.text.toString().toLong()
+            preferences.edit().apply {
+                putInt(TAG_AMPLITUDE, minAmplitude)
+                putLong(TAG_INTERVAL, updateInterval)
+                apply()
+            }
 
 
         }
         createNotificationChannel()
+    }
+
+    private fun getSavedData() {
+        getSharedPreferences("main", MODE_PRIVATE).apply {
+            minAmplitude = getInt(TAG_AMPLITUDE, 70)
+            updateInterval = getLong(TAG_INTERVAL, 10000L)
+        }
     }
 
     private fun createNotificationChannel() {
