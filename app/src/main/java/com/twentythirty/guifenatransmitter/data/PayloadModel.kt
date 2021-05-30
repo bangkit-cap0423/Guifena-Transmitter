@@ -7,5 +7,5 @@ data class PayloadModel(
     @SerializedName("audio")
     val audio: String,
     @SerializedName("sensor_id")
-    val sensorId: Int
+    val sensor_id: Int
 )
