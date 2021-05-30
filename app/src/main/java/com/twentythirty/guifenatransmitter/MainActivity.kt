@@ -117,10 +117,11 @@ class MainActivity : AppCompatActivity() {
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
         val task = fusedLocationProviderClient.lastLocation
         task.addOnSuccessListener {
-            if (it != null){
+            if (it != null) {
                 locationCoordinate = "${it.latitude},${it.longitude}"
-                Toast.makeText(this, "Location set to $locationCoordinate", Toast.LENGTH_SHORT).show()
-            } else{
+                Toast.makeText(this, "Location set to $locationCoordinate", Toast.LENGTH_SHORT)
+                    .show()
+            } else {
                 Toast.makeText(this, "The App Can't get the location", Toast.LENGTH_SHORT).show()
             }
         }
@@ -221,11 +222,11 @@ class MainActivity : AppCompatActivity() {
         stopService(serviceIntent)
     }
 
-    private fun addSensor(name: String?, location: String?){
+    private fun addSensor(name: String?, location: String?) {
         this.lifecycleScope.launch {
             val response = mainRepository.addSensor(name!!, location!!)
 
-            if (response.isSuccessful){
+            if (response.isSuccessful) {
                 Log.d("farin", "${response.code()} : ${response.body()?.sensor_id}")
 
                 sensorId = response.body()?.sensor_id

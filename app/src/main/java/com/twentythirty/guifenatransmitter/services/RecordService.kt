@@ -172,10 +172,10 @@ class RecordService : Service() {
         }
     }
 
-    private fun postAudio(audio: String?, sensorId: Int){
+    private fun postAudio(audio: String?, sensorId: Int) {
         GlobalScope.launch(Dispatchers.IO) {
             val response = mainRepository.pushPost(audio, sensorId)
-            if (response.isSuccessful){
+            if (response.isSuccessful) {
                 Log.d("farin", "${response.code()} : ${response.message()}")
                 postApiStatus = "${response.code()} : ${response.message()}"
 
@@ -185,7 +185,7 @@ class RecordService : Service() {
                 updateNotification("Post Request Status", postApiStatus)
 
                 mainHandler.postDelayed({ startRecord() }, updateInterval)
-            } else{
+            } else {
                 Log.e("farin", "${response.code()} : ${response.message()}")
                 postApiStatus = "${response.code()} : ${response.message()}"
 
