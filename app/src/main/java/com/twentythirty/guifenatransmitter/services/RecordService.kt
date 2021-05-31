@@ -14,7 +14,12 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.twentythirty.guifenatransmitter.MainActivity
 import com.twentythirty.guifenatransmitter.R
+import com.twentythirty.guifenatransmitter.data.MainRepository
 import com.twentythirty.guifenatransmitter.data.PayloadModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import org.koin.android.ext.android.inject
 import java.io.File
 import kotlin.math.abs
 import kotlin.math.log10
@@ -22,10 +27,13 @@ import kotlin.math.log10
 
 class RecordService : Service() {
     private lateinit var mRecorder: MediaRecorder
+    private val mainRepository: MainRepository by inject()
+    private var sensorId = 0
     private var amplitudeValue = 0
     private var amplitudeDb = 0.0
+    private var postApiStatus = ""
     private var referenceAmplitude = 70
-    private var updateInterval = 1000L
+    private var updateInterval = 20000L
     private lateinit var mainHandler: Handler
     private lateinit var file: File
     private lateinit var mp: MediaPlayer
@@ -46,8 +54,9 @@ class RecordService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        referenceAmplitude = intent!!.getIntExtra(MainActivity.TAG_AMPLITUDE, 70)
-        updateInterval = intent.getLongExtra(MainActivity.TAG_INTERVAL, 10000L)
+        sensorId = intent!!.getIntExtra(MainActivity.TAG_SENSORID, 0)
+        referenceAmplitude = intent.getIntExtra(MainActivity.TAG_AMPLITUDE, 70)
+        updateInterval = intent.getLongExtra(MainActivity.TAG_INTERVAL, 20000L)
         mainHandler = Handler(Looper.getMainLooper())
         val notificationIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
@@ -105,7 +114,7 @@ class RecordService : Service() {
             Log.d("FARIN", e.toString())
         }
         mainHandler.post(updateAmplitude)
-        mainHandler.postDelayed({ stopRecord() }, updateInterval)
+        mainHandler.postDelayed({ stopRecord() }, 10000)
     }
 
     private fun stopRecord() {
@@ -115,32 +124,22 @@ class RecordService : Service() {
             isRecording = false
         }
         if (amplitudeDb > referenceAmplitude) {
-            //Upload to cloud
-            updateNotification("Playing sound..", "denger")
-            mp = MediaPlayer()
-            mp.apply {
-                setDataSource(file.toString())
-                prepare()
-                start()
-            }
-            largeLog("farin", convertBase64(file))
+            Log.d("farin", "Sound detected. Start Post Request...")
             val payloadModel = PayloadModel(
                 audio = convertBase64(file),
-                sensorId = 1
+                sensor_id = sensorId
             )
-            TODO("add coroutine for upload")
-            //masukkan 3 baris kode dibawah ini ke coroutine
-            //agar recording dijalankan kembali
-            //hanya ketika upload sudah selesai
-            mainHandler.removeCallbacks(updateAmplitude)
-            mRecorder.release()
-            mainHandler.postDelayed({ startRecord() }, updateInterval)
+
+            postAudio(payloadModel.audio, payloadModel.sensor_id)
         } else {
+            Log.d("farin", "No sound detected")
+
             mainHandler.removeCallbacks(updateAmplitude)
             mRecorder.reset()
             mRecorder.release()
             updateNotification("No sound", "Starting recorder..")
-            mainHandler.postDelayed({ startRecord() }, 2000)
+
+            postAudio(null, sensorId)
         }
 
     }
@@ -158,7 +157,7 @@ class RecordService : Service() {
     }
 
     fun updateNotification(title: String, subTitle: String) {
-        Log.d("farin", "cantik")
+//        Log.d("farin", "cantik")
         val notificationIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
         val notification = NotificationCompat.Builder(this, MainActivity.CHANNEL_ID)
@@ -170,6 +169,33 @@ class RecordService : Service() {
             .build()
         with(NotificationManagerCompat.from(this)) {
             notify(1, notification)
+        }
+    }
+
+    private fun postAudio(audio: String?, sensorId: Int) {
+        GlobalScope.launch(Dispatchers.IO) {
+            val response = mainRepository.pushPost(audio, sensorId)
+            if (response.isSuccessful) {
+                Log.d("farin", "${response.code()} : ${response.message()}")
+                postApiStatus = "${response.code()} : ${response.message()}"
+
+                mainHandler.removeCallbacks(updateAmplitude)
+                mRecorder.release()
+
+                updateNotification("Post Request Status", postApiStatus)
+
+                mainHandler.postDelayed({ startRecord() }, updateInterval)
+            } else {
+                Log.e("farin", "${response.code()} : ${response.message()}")
+                postApiStatus = "${response.code()} : ${response.message()}"
+
+                mainHandler.removeCallbacks(updateAmplitude)
+                mRecorder.release()
+
+                updateNotification(postApiStatus, "starting re-record")
+
+                mainHandler.postDelayed({ startRecord() }, updateInterval)
+            }
         }
     }
 }
