@@ -133,13 +133,13 @@ class RecordService : Service() {
             postAudio(payloadModel.audio, payloadModel.sensor_id)
         } else {
             Log.d("farin", "No sound detected")
-            postAudio(null, 1)
 
             mainHandler.removeCallbacks(updateAmplitude)
             mRecorder.reset()
             mRecorder.release()
             updateNotification("No sound", "Starting recorder..")
-            mainHandler.postDelayed({ startRecord() }, updateInterval)
+
+            postAudio(null, sensorId)
         }
 
     }

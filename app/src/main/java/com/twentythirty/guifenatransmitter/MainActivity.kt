@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -67,6 +68,8 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnStart.setOnClickListener {
             if (sensorName != null && locationCoordinate != null) {
+                binding.txStatus.text = getString(R.string.online_status)
+                binding.txStatus.setTextColor(Color.parseColor("#5E6537"))
                 startService()
                 Toast.makeText(this, "Service Started", Toast.LENGTH_SHORT).show()
             } else {
@@ -78,6 +81,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
         binding.btnStop.setOnClickListener {
+            binding.txStatus.text = getString(R.string.offline_status)
+            binding.txStatus.setTextColor(Color.parseColor("#A60000"))
             Toast.makeText(this, "Service Stopped", Toast.LENGTH_SHORT).show()
             stopService()
         }
@@ -131,6 +136,7 @@ class MainActivity : AppCompatActivity() {
         getSharedPreferences("main", MODE_PRIVATE).apply {
             minAmplitude = getInt(TAG_AMPLITUDE, 70)
             updateInterval = getLong(TAG_INTERVAL, 10000L)
+            sensorId = getInt(TAG_SENSORID, 0)
             sensorName = getString(TAG_SENSORNAME, null)
             locationCoordinate = getString(TAG_LOCATION, null)
         }
@@ -138,7 +144,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val serviceChannel: NotificationChannel = NotificationChannel(
+            val serviceChannel = NotificationChannel(
                 CHANNEL_ID,
                 CHANNEL_NAME,
                 NotificationManager.IMPORTANCE_LOW
@@ -178,8 +184,14 @@ class MainActivity : AppCompatActivity() {
             isSetting = !isSetting
             isSetting(isSetting)
 
-            val toSecond = tempUpdateInterval.toLong() * 1000
 
+            val prefLocation = preferences.getString(TAG_LOCATION, null)
+            if (tempSensorName != sensorName || locationCoordinate != prefLocation){
+                addSensor(tempSensorName, locationCoordinate)
+            }
+
+            //assign EditText value to variable
+            val toSecond = tempUpdateInterval.toLong() * 1000
             minAmplitude = tempMinAmplitude.toInt()
             updateInterval = toSecond
             sensorName = tempSensorName
@@ -191,8 +203,7 @@ class MainActivity : AppCompatActivity() {
                 "Amplitude threshold set to $tempMinAmplitude dB \n Record Interval set to $tempUpdateInterval s'"
             Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
 
-            addSensor(sensorName, locationCoordinate)
-
+            //save value to shared pref
             preferences.edit().apply {
                 putInt(TAG_AMPLITUDE, minAmplitude)
                 putLong(TAG_INTERVAL, updateInterval)
@@ -209,7 +220,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun startService() {
+    private fun startService() {
         val myServiceIntent = Intent(this, RecordService::class.java)
         myServiceIntent.putExtra(TAG_AMPLITUDE, minAmplitude)
         myServiceIntent.putExtra(TAG_INTERVAL, updateInterval)
@@ -217,7 +228,7 @@ class MainActivity : AppCompatActivity() {
         ContextCompat.startForegroundService(this, myServiceIntent)
     }
 
-    fun stopService() {
+    private fun stopService() {
         val serviceIntent = Intent(this, RecordService::class.java)
         stopService(serviceIntent)
     }
