@@ -177,7 +177,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (tempUpdateInterval.isBlank()) {
-            tempUpdateInterval = 10000.toString()
+            tempUpdateInterval = 10.toString()
         }
 
         if (tempSensorName.isNotBlank() && locationCoordinate != null) {
